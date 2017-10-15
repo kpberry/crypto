@@ -22,9 +22,10 @@ def cipher(inp, expanded_key):
         # more confusion: continue to destroy patterns
         add_round_key(state, expanded_key, round)
 
-    # shift_rows(state)
-    # mix_columns(state)
-    # add_round_key(state, expanded_key, 14)
+    shift_rows(state)
+    mix_columns(state)
+    add_round_key(state, expanded_key, 14)
+
     output = [None] * 16
     for i in range(16):
         output[i] = state[i % 4][int(i / 4)]
