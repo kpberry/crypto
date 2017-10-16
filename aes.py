@@ -120,20 +120,23 @@ def compute_rcon(i):
 rcon = list(map(compute_rcon, range(256)))
 
 
-# uses a 256 bit key
+# Converts a 16 bit key into a 240 bit key
 def expand_key(key):
     # initialize the first bytes to the key
     result = [j for j in key]
     i = 1
     while len(result) < 240:
         t = result[-4:]
+        # every 8th iteration, apply a rotated substitution and a partial convolution
         if len(result) % 32 == 0:
             t = [s_box[j] for j in [t[1], t[2], t[3], t[0]]]
             t[0] ^= rcon[i]
             i += 1
+        # halfway between 8th iterations, apply a substitution
         if len(result) % 32 == 16:
             t = [s_box[j] for j in t]
 
+        # mix the result of previous key operations with the current state
         for j in range(4):
             result.append(result[-32] ^ t[j])
     result = [result[j * 4:(j + 1) * 4] for j in range(60)]
@@ -141,13 +144,22 @@ def expand_key(key):
 
 
 def encrypt(text, key):
+    """
+    Encrypts a plaintext string or char array into ciphertext using AES.
+    Uses the counter mode of operation.
+    :param text: the text to encrypt
+    :param key: the cryptographic key to use
+    :return: an encrypted byte array with the nonce at the front
+    """
     bytes = [ord(i) for i in text]
     bytes.extend([0] * (16 - len(text) % 16))
     assert len(bytes) % 16 == 0
+    # pre-compute the expanded key since we use it to construct each cipher
     expanded_key = expand_key(key)
 
     nonce = int(time.time()) * 2
     for i in range(int(len(bytes) / 16)):
+        # make a cipher from the nonce and the expanded key
         c = cipher(int_key_to_n_char_arr(nonce ^ i, 16), expanded_key)
         for j in range(16):
             bytes[j + i * 16] ^= c[j]
@@ -155,6 +167,12 @@ def encrypt(text, key):
 
 
 def decrypt(text, key):
+    """
+    Decrypts a ciphertext byte array into a plaintext string using AES
+    :param text: the ciphertext to decrypt with a nonce as the first element
+    :param key: the key used to encrypt the ciphertext
+    :return: a decrypted string
+    """
     nonce = text[0]
     text = text[1:]
     assert len(text) % 16 == 0
@@ -165,7 +183,10 @@ def decrypt(text, key):
         c = cipher(q, expanded_key)
         for j in range(16):
             text[j + i * 16] ^= c[j]
-    return ''.join(map(chr, text[:text.index(0)]))
+    if 0 not in text:
+        return ''.join(map(chr, text))
+    else:
+        return ''.join(map(chr, text[:text.index(0)]))
 
 
 def int_key_to_n_char_arr(key, n=32):
